@@ -4,7 +4,6 @@ from django.db.models.signals import post_save, post_delete
 import os
 from backend.tasks import convert_480p
 import django_rq
-from django_rq import enqueue
 
 @receiver(post_save, sender=Video)
 def video_post_save(sender, instance, created, **kwargs):
