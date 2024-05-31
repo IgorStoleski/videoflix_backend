@@ -2,6 +2,7 @@ from datetime import datetime
 from django.contrib.auth.models import User 
 from django.contrib.auth import authenticate
 from rest_framework import serializers
+from user.models import CustomUser
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -15,7 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs: Extra keyword arguments for customizing field behavior.
     """
     class Meta:
-        model = User
+        model = CustomUser
         fields = ['id', 'username', 'first_name', 'last_name', 'email', 'password']
         extra_kwargs = {
             'password': {'write_only': True}
