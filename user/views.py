@@ -1,10 +1,13 @@
 from django.shortcuts import render
 from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
-from user.models import CustomUser as User
 from user.serializers import UserSerializer, EmailAuthTokenSerializer
-from rest_framework.authtoken.views import ObtainAuthToken, APIView, Response, Token
-from django.contrib.auth import logout
+from rest_framework.authtoken.views import ObtainAuthToken, APIView
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import logout, get_user_model
+
+User = get_user_model()
 
 # Create your views here.
 class UserView(APIView):
