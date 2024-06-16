@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
@@ -6,8 +6,50 @@ from user.serializers import UserSerializer, EmailAuthTokenSerializer
 from rest_framework.authtoken.views import ObtainAuthToken, APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import logout, get_user_model
+from .tokens import account_activation_token
+from django.contrib import messages
+from django.template.loader import render_to_string
+from django.contrib.sites.shortcuts import get_current_site
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import EmailMessage
+
 
 User = get_user_model()
+
+def activate(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except:
+        user = None
+        
+    if user is not None and account_activation_token.check_token(user, token):
+        user.is_active = True
+        user.save()
+        messages.success(request, 'Your account has been activated successfully.')
+        return redirect('/login/')
+    else:
+        messages.error(request, 'Activation link is invalid.')
+        
+    return redirect('/login/')
+    
+def activate_email(request, user, to_email):
+    mail_subject = 'Activate your account'
+    message = render_to_string("activate_account.html", {
+        'user': user.username,
+        'domain': get_current_site(request).domain,
+        'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+        'token': account_activation_token.make_token(user),
+        'protocol': 'https' if request.is_secure() else 'http'
+    })
+    email = EmailMessage(mail_subject, message, to=[to_email])
+    if email.send():
+        messages.success(request, f'An email has been sent to {to_email} with a link to activate your account.')
+    else:
+        messages.error(request, f'Problem sending email to {to_email}, check your email address and try again.')
+    
+    return redirect('/register/')
 
 # Create your views here.
 class UserView(APIView):
@@ -33,12 +75,13 @@ class UserView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) """
-        print("Incoming request data:", request.data)  # Debug-Log
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = User(**serializer.validated_data)
+            user.is_active = False
+            user.save()
+            activate_email(request, user, user.email)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        print("Serializer errors:", serializer.errors)  # Debug-Log
         return Response({'success': False, 'message': 'Validation errors', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
     
     def get(self, request, pk=None, format=None):

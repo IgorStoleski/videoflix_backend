@@ -25,6 +25,12 @@ ALLOWED_HOSTS = [
     '10.10.0.102',
 ]
 
+CORS_ALLOWED_ORIGINS = [
+    '*',
+    'http://10.10.0.103:4200',
+    'http://localhost:4200',
+]
+
 CACHE_TTL = 60 * 15
 
 """ INTERNAL_IPS = [
@@ -41,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
     "rest_framework.authtoken",
     "backend.apps.BackendConfig",
     "debug_toolbar",
@@ -59,6 +66,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -124,6 +132,15 @@ DATABASES = {
     }
 }
 
+#Email Settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env('EMAIL_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_PASSWORD')
+
+PASSWORD_RESET_TIMEOUT = 14400
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
