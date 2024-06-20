@@ -4,6 +4,9 @@ from django.contrib.admin.sites import site
 from rest_framework.authtoken.models import Token
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from .models import CustomUser
+from rest_framework.authtoken.models import TokenProxy
+
+admin.site.unregister(TokenProxy)
 
 
 class CustomUserAdmin(UserAdmin):
@@ -33,8 +36,3 @@ class CustomUserAdmin(UserAdmin):
 
 
 admin.site.register(CustomUser, CustomUserAdmin)
-
-try:
-    site.unregister(Token)
-except admin.sites.NotRegistered:
-    pass

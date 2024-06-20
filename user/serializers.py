@@ -29,8 +29,24 @@ class EmailAuthTokenSerializer(serializers.Serializer):
     def validate(self, data):
         email = data.get('email')
         password = data.get('password')
+
         # Authenticate user using email and password
         user = authenticate(request=self.context.get('request'), username=email, password=password)
-        if not user:
+        
+        # Debugging: Log authentication attempts
+        if user is None:
+            # Check if user exists and password matches
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            try:
+                user_instance = User.objects.get(email=email)
+                if not user_instance.check_password(password):
+                    raise serializers.ValidationError({'non_field_errors': ['Password is incorrect.']})
+                if not user_instance.is_active:
+                    raise serializers.ValidationError({'non_field_errors': ['User account is not active.']})
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'non_field_errors': ['User does not exist.']})
+
             raise serializers.ValidationError({'non_field_errors': ['Unable to log in with provided credentials.']})
+        
         return {'user': user}
