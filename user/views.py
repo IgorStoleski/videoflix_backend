@@ -14,6 +14,11 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import EmailMessage
 from django.http import JsonResponse
+from django.core.mail import EmailMultiAlternatives
+from django.utils.html import strip_tags
+from django.contrib.auth.tokens import default_token_generator
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 base_url = 'http://localhost:4200/'
 email_url = 'localhost:4200'
@@ -32,25 +37,28 @@ def activate(request, uidb64, token):
         return JsonResponse({'message': 'Account activated successfully. You can now login.'}, status=200)
     else:
         return JsonResponse({'message': 'Activation link is invalid!'}, status=400)
-        
-    
-    
+
+
 def activate_email(request, user, to_email):
     mail_subject = 'Activate your account'
-    message = render_to_string("activate_account.html", {
+    html_content = render_to_string("activate_account.html", {
         'user': user.username,
         'domain': email_url,
         'uid': urlsafe_base64_encode(force_bytes(user.pk)),
         'token': account_activation_token.make_token(user),
         'protocol': 'https' if request.is_secure() else 'http'
     })
-    email = EmailMessage(mail_subject, message, to=[to_email])
-    if email.send():
+    text_content = strip_tags(html_content)  # Fallback für E-Mail-Clients, die kein HTML unterstützen
+    from_email = 'damigadas@gmail.com'
+
+    msg = EmailMultiAlternatives(mail_subject, text_content, from_email, [to_email])
+    msg.attach_alternative(html_content, "text/html")
+    if msg.send():
         messages.success(request, f'An email has been sent to {to_email} with a link to activate your account.')
     else:
         messages.error(request, f'Problem sending email to {to_email}, check your email address and try again.')
-    
-    return redirect(base_url+'register/')
+
+    return redirect(base_url + 'register/')
 
 # Create your views here.
 class UserView(APIView):
@@ -83,8 +91,8 @@ class UserView(APIView):
             user.save()
             activate_email(request, user, user.email)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response({'success': False, 'message': 'Validation errors', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
+        return Response({'success': False, 'message': 'Validation errors', 'errors': serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST)
     def get(self, request, pk=None, format=None):
         """
         Retrieves user instance(s).
@@ -175,3 +183,68 @@ class LogoutView(APIView):
         """
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@csrf_exempt
+def request_password_reset(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            email = data.get('email')
+            print(f"Received email: {email}")  # Debugging-Ausgabe
+        except Exception as e:
+            print(f"Error parsing request body: {e}")  # Debugging-Ausgabe
+            return JsonResponse({'error': 'Invalid request data'}, status=400)
+
+        if not email:
+            return JsonResponse({'error': 'Email is required'}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+            print(f"User found: {user}")  # Debugging-Ausgabe
+        except User.DoesNotExist:
+            print("User does not exist")  # Debugging-Ausgabe
+            return JsonResponse({'error': 'Invalid email address'}, status=400)
+
+        mail_subject = 'Reset your password'
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        reset_link = f"{request.scheme}://{request.get_host()}/password-reset-confirm/{uid}/{token}/"
+
+        html_content = render_to_string('password_reset_email.html', {'reset_link': reset_link})
+        text_content = strip_tags(html_content)
+
+        email = EmailMultiAlternatives(mail_subject, text_content, to=[user.email])
+        email.attach_alternative(html_content, "text/html")
+        email.send()
+
+        return JsonResponse({'message': 'Password reset link sent to your email'}, status=200)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def password_reset_confirm(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        if request.method == 'POST':
+            try:
+                data = json.loads(request.body.decode('utf-8'))
+                new_password = data.get('new_password')
+                if new_password:
+                    user.set_password(new_password)
+                    user.save()
+                    return JsonResponse({'message': 'Password has been reset successfully'}, status=200)
+                else:
+                    return JsonResponse({'error': 'New password is required'}, status=400)
+            except Exception as e:
+                return JsonResponse({'error': 'Invalid request data'}, status=400)
+        else:
+            return redirect(f"{base_url}/password-reset-confirm/{uidb64}/{token}/")
+    else:
+        return JsonResponse({'error': 'Invalid link'}, status=400)

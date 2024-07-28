@@ -7,7 +7,7 @@ from import_export.admin import ImportExportModelAdmin
 class VideoResources(resources.ModelResource):
     class Meta:
         model = Video
-        """ fields = {'title', 'created_at', 'description'} """
+
 
 
 @admin.register(Video)

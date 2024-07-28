@@ -1,7 +1,15 @@
-{% autoescape off %}
-Hi {{ user }},
-
-To activate your account, click the following link:
-
-http://{{ domain }}{% url 'activate' uidb64=uid token=token %}
-{% endautoescape %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <p>Hi {{ user }},</p>
+    <p>To activate your account, click the following button:</p>
+    <p>
+        <a href="http://{{ domain }}{% url 'activate' uidb64=uid token=token %}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; border-radius: 5px;">Activate Account</a>
+    </p>
+    <p>If the button above does not work, you can also click the link below:</p>
+    <p><a href="http://{{ domain }}{% url 'activate' uidb64=uid token=token %}">http://{{ domain }}{% url 'activate' uidb64=uid token=token %}</a></p>
+</body>
+</html>
