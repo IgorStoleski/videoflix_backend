@@ -11,6 +11,11 @@ from .serializers import UserSerializer, EmailAuthTokenSerializer
 from unittest.mock import patch
 from .authentication import EmailBackend
 from django.contrib.auth.backends import ModelBackend
+from django.test import SimpleTestCase
+from django.urls import reverse, resolve
+from django.contrib import admin
+from user.views import UserView, LoginView, LogoutView, activate, request_password_reset, password_reset_confirm
+from backend.views import VideoList, VideoDetail, VideoByGenreList
 
 
 base_url = 'http://localhost:4200/'
@@ -197,3 +202,50 @@ class EmailBackendTests(TestCase):
     def test_get_user_with_invalid_user_id(self):
         user = self.backend.get_user(999)
         self.assertIsNone(user)
+        
+
+class UrlsTest(SimpleTestCase):
+
+    def test_admin_url_resolves(self):
+        url = reverse('admin:index')
+        self.assertEqual(resolve(url).func, admin.site.index)
+
+    def test_register_url_resolves(self):
+        url = reverse('register')
+        self.assertEqual(resolve(url).func.view_class, UserView)
+
+    def test_login_url_resolves(self):
+        url = reverse('login')
+        self.assertEqual(resolve(url).func.view_class, LoginView)
+
+    def test_logout_url_resolves(self):
+        url = reverse('logout')
+        self.assertEqual(resolve(url).func.view_class, LogoutView)
+
+    def test_user_url_resolves(self):
+        url = reverse('user')
+        self.assertEqual(resolve(url).func.view_class, UserView)
+
+    def test_video_list_url_resolves(self):
+        url = reverse('video-list')
+        self.assertEqual(resolve(url).func.view_class, VideoList)
+
+    def test_video_detail_url_resolves(self):
+        url = reverse('video-detail', args=[1])
+        self.assertEqual(resolve(url).func.view_class, VideoDetail)
+
+    def test_video_by_genre_url_resolves(self):
+        url = reverse('video-by-genre', args=['action'])
+        self.assertEqual(resolve(url).func.view_class, VideoByGenreList)
+
+    def test_activate_url_resolves(self):
+        url = reverse('activate', args=['uidb64', 'token'])
+        self.assertEqual(resolve(url).func, activate)
+
+    def test_request_password_reset_url_resolves(self):
+        url = reverse('request-password-reset')
+        self.assertEqual(resolve(url).func, request_password_reset)
+
+    def test_password_reset_confirm_url_resolves(self):
+        url = reverse('password-reset-confirm', args=['uidb64', 'token'])
+        self.assertEqual(resolve(url).func, password_reset_confirm)
