@@ -25,6 +25,22 @@ email_url = 'localhost:4200'
 User = get_user_model()
 
 def activate(request, uidb64, token):
+    """
+    Activates a user account based on a UID and a token.
+    Attempts to decode the uidb64 to a user's primary key, retrieve the corresponding user object,
+    and then check the provided token. If the token is valid and the user exists, it activates
+    the user's account by setting `is_active` to True.
+    Parameters:
+    - request (HttpRequest): The HTTP request object.
+    - uidb64 (str): URL-safe base64-encoded ID of the user.
+    - token (str): Token for verifying the user's identity.
+    Returns:
+    - JsonResponse: A JSON response indicating whether the activation was successful or failed,
+      with an appropriate HTTP status code. Returns status 200 with a success message if the
+      activation is successful, or status 400 with an error message if the activation fails.
+    Raises:
+    - Does not explicitly raise exceptions but returns a JsonResponse indicating the outcome.
+    """
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)
@@ -40,6 +56,19 @@ def activate(request, uidb64, token):
 
 
 def activate_email(request, user, to_email):
+    """
+    Sends an account activation email to the specified email address.
+    This function constructs an email with both HTML and plain text content for activating a user's account, 
+    includes a secure link with a unique token for the user. If the email is sent successfully, it logs a success message; 
+    otherwise, it logs an error.
+    :param request: The HttpRequest object, used to determine if the request is secure (https).
+    :param user: The User model instance representing the user who needs to activate their account.
+    :param to_email: The email address to which the activation email will be sent.
+    :return: Redirects to the registration page upon execution.
+    The email content is rendered using the `activate_account.html` template. It includes details such as the 
+    user's username, domain, user ID encoded in URL-safe base64, and an account activation token.    
+    It uses 'https' protocol if the request is secure; otherwise, 'http'.
+    """
     mail_subject = 'Activate your account'
     html_content = render_to_string("activate_account.html", {
         'user': user.username,
@@ -187,64 +216,117 @@ class LogoutView(APIView):
 
 @csrf_exempt
 def request_password_reset(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body.decode('utf-8'))
-            email = data.get('email')
-            print(f"Received email: {email}")  # Debugging-Ausgabe
-        except Exception as e:
-            print(f"Error parsing request body: {e}")  # Debugging-Ausgabe
-            return JsonResponse({'error': 'Invalid request data'}, status=400)
+    """
+    Handles the password reset request for a user.
+    Parameters:
+    request (HttpRequest): The HTTP request object containing the email for password reset.
+    Returns:
+    JsonResponse: A JSON response indicating the result of the operation.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
 
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        email = data.get('email')
         if not email:
             return JsonResponse({'error': 'Email is required'}, status=400)
-
-        try:
-            user = User.objects.get(email=email)
-            print(f"User found: {user}")  # Debugging-Ausgabe
-        except User.DoesNotExist:
-            print("User does not exist")  # Debugging-Ausgabe
-            return JsonResponse({'error': 'Invalid email address'}, status=400)
-
-        mail_subject = 'Reset your password'
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
-        reset_link = f"{request.scheme}://{request.get_host()}/password-reset-confirm/{uid}/{token}/"
-
-        html_content = render_to_string('password_reset_email.html', {'reset_link': reset_link})
-        text_content = strip_tags(html_content)
-
-        email = EmailMultiAlternatives(mail_subject, text_content, to=[user.email])
-        email.attach_alternative(html_content, "text/html")
-        email.send()
-
+        
+        user = User.objects.get(email=email)
+        send_password_reset_email(request, user)
         return JsonResponse({'message': 'Password reset link sent to your email'}, status=200)
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
+    
+    except (json.JSONDecodeError, KeyError):
+        return JsonResponse({'error': 'Invalid request data'}, status=400)
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'Invalid email address'}, status=400)
+
+def send_password_reset_email(request, user):
+    """
+    Sends a password reset email to the user.
+    Parameters:
+    request (HttpRequest): The HTTP request object.
+    user (User): The user object.
+    """
+    mail_subject = 'Reset your password'
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    reset_link = f"{request.scheme}://{request.get_host()}/password-reset-confirm/{uid}/{token}/"
+    
+    html_content = render_to_string('password_reset_email.html', {'reset_link': reset_link})
+    text_content = strip_tags(html_content)
+    
+    email = EmailMultiAlternatives(mail_subject, text_content, to=[user.email])
+    email.attach_alternative(html_content, "text/html")
+    email.send()
 
 
 @csrf_exempt
 def password_reset_confirm(request, uidb64, token):
+    """
+    Process a password reset request for a user identified by a base64-encoded UID and a token.
+
+    Parameters:
+    request (HttpRequest): The HTTP request object containing the method and body.
+    uidb64 (str): A base64-encoded string representing the user's ID.
+    token (str): A token used to verify the password reset request.
+
+    Returns:
+    JsonResponse: A JSON response indicating the result of the operation.
+    """
+    user = get_user_by_uid(uidb64)
+    
+    if user and default_token_generator.check_token(user, token):
+        if request.method == 'POST':
+            return handle_post_request(request, user)
+        else:
+            return redirect_to_confirm_page(uidb64, token)
+    return JsonResponse({'error': 'Invalid link'}, status=400)
+
+
+def get_user_by_uid(uidb64):
+    """
+    Retrieve a user by their base64-encoded UID.
+    Parameters:
+    uidb64 (str): A base64-encoded string representing the user's ID.
+    Returns:
+    User: The user object if found, otherwise None.
+    """
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.get(pk=uid)
+        return User.objects.get(pk=uid)
     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-        user = None
+        return None
 
-    if user is not None and default_token_generator.check_token(user, token):
-        if request.method == 'POST':
-            try:
-                data = json.loads(request.body.decode('utf-8'))
-                new_password = data.get('new_password')
-                if new_password:
-                    user.set_password(new_password)
-                    user.save()
-                    return JsonResponse({'message': 'Password has been reset successfully'}, status=200)
-                else:
-                    return JsonResponse({'error': 'New password is required'}, status=400)
-            except Exception as e:
-                return JsonResponse({'error': 'Invalid request data'}, status=400)
-        else:
-            return redirect(f"{base_url}/password-reset-confirm/{uidb64}/{token}/")
-    else:
-        return JsonResponse({'error': 'Invalid link'}, status=400)
+
+def handle_post_request(request, user):
+    """
+    Handle a POST request to reset the user's password.
+    Parameters:
+    request (HttpRequest): The HTTP request object containing the body.
+    user (User): The user object whose password is to be reset.
+    Returns:
+    JsonResponse: A JSON response indicating the result of the operation.
+    """
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        new_password = data.get('new_password')
+        if new_password:
+            user.set_password(new_password)
+            user.save()
+            return JsonResponse({'message': 'Password has been reset successfully'}, status=200)
+        return JsonResponse({'error': 'New password is required'}, status=400)
+    except Exception:
+        return JsonResponse({'error': 'Invalid request data'}, status=400)
+
+
+def redirect_to_confirm_page(uidb64, token):
+    """
+    Redirect to the password reset confirmation page.
+    Parameters:
+    uidb64 (str): A base64-encoded string representing the user's ID.
+    token (str): A token used to verify the password reset request.
+    Returns:
+    HttpResponseRedirect: A redirect to the password reset confirmation page.
+    """
+    return redirect(f"{base_url}/password-reset-confirm/{uidb64}/{token}/")

@@ -7,6 +7,20 @@ import django_rq
 
 @receiver(post_save, sender=Video)
 def video_post_save(sender, instance, created, **kwargs):
+    """
+    Signal handler that processes a video after it has been saved to the database.
+
+    This function is triggered after a `Video` instance is saved. If the `Video` instance
+    is newly created (`created=True`), it performs several operations:
+    1. Generates and logs the creation of a new video.
+    2. Creates a thumbnail for the video.
+    3. Enqueues several tasks to convert the video into different resolutions (360p, 720p, 1080p).
+
+    :param sender: The model class that just had an instance saved.
+    :param instance: The actual instance of the model that was saved.
+    :param created: A boolean indicating whether this is a new instance or an update.
+    :param kwargs: A dictionary containing any additional keyword arguments.
+    """
     if created:
         print(f"New video created: {instance.id}")
         video_file_path = instance.video_file.path
