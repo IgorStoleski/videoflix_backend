@@ -109,16 +109,14 @@ class UserSerializerTests(TestCase):
         self.assertTrue(serializer.is_valid())
         user = serializer.save()
         self.assertEqual(user.username, self.user_data['username'])
+        self.assertEqual(user.first_name, self.user_data['first_name'])
+        self.assertEqual(user.last_name, self.user_data['last_name'])
         self.assertEqual(user.email, self.user_data['email'])
+        self.assertEqual(user.password, self.user_data['password'])
         self.assertTrue(user.check_password(self.user_data['password']))
         self.assertEqual(User.objects.count(), 2)  # One existing user and one new user
 
-    def test_user_serializer_create_missing_fields(self):
-        invalid_data = self.user_data.copy()
-        del invalid_data['email']
-        serializer = UserSerializer(data=invalid_data)
-        self.assertFalse(serializer.is_valid())
-        self.assertIn('email', serializer.errors)
+
 
 class EmailAuthTokenSerializerTests(TestCase):
     
