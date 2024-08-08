@@ -1,5 +1,6 @@
 import subprocess
 import os
+from PIL import Image
 from django.conf import settings
 from django.core.files import File
 from .models import Video
@@ -29,26 +30,34 @@ def run_command(cmd):
     except subprocess.CalledProcessError as e:
         print(f"Error: {e.stderr.decode()}")
 
-def generate_thumbnail(video_file, thumbnail_file):
+def generate_thumbnail(video_file, thumbnail_file, compression_level=6):
     """
-    Generates a thumbnail image for a given video file.
-    This function uses the `ffmpeg` command-line tool to extract a frame from the specified video file
-    and save it as a thumbnail image file. It captures the frame at the 1-second mark of the video.
+    Generates a compressed PNG thumbnail image for a given video file.
+    
+    This function uses the `ffmpeg` command-line tool to extract a frame from the specified video file,
+    saves it as a thumbnail image file, and then compresses the image using Pillow.
+    
     Args:
         video_file (str): The path to the video file for which the thumbnail needs to be generated.
         thumbnail_file (str): The path where the thumbnail image will be saved.
+        compression_level (int): The compression level for the saved PNG thumbnail (default is 6, range is 0-9).
+    
     Returns:
         str or None: The path to the created thumbnail image file if the creation was successful, `None` otherwise.
+    
     Raises:
         OSError: If the `ffmpeg` command fails or if the thumbnail file is not created.
+    
     Example:
-        >>> thumbnail_path = generate_thumbnail('example_video.mp4', 'example_thumbnail.jpg')
+        >>> thumbnail_path = generate_thumbnail('example_video.mp4', 'example_thumbnail.png')
         >>> print(thumbnail_path)
-        'example_thumbnail.jpg'
+        'example_thumbnail.png'
     """
     cmd = f'ffmpeg -i "{video_file}" -ss 00:00:01.000 -vframes 1 "{thumbnail_file}"'
     run_command(cmd)
     if os.path.exists(thumbnail_file):
+        with Image.open(thumbnail_file) as img:
+            img.save(thumbnail_file, 'PNG', compress_level=compression_level, optimize=True)
         return thumbnail_file
     else:
         return None
