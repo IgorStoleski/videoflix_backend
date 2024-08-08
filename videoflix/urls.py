@@ -23,3 +23,7 @@ urlpatterns = [
     path('password-reset-confirm/<uidb64>/<token>/', password_reset_confirm, name='password-reset-confirm'),
 
 ] + staticfiles_urlpatterns()
+
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
