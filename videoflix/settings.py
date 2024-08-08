@@ -32,6 +32,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://10.10.0.103:4200',
     'http://localhost:4200',
     'http://127.0.0.1:4200',
+    'https://video-flix.de',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -204,7 +205,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 def show_toolbar(request):    
     # Oder nur für einen User?    
     # # return not request.is_ajax() and request.user and request.user.username == "yourusername"    
-    return True
+    return False
 
 DEBUG_TOOLBAR_CONFIG = {
     'SHOW_TOOLBAR_CALLBACK': show_toolbar,
