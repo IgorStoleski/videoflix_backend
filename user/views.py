@@ -20,8 +20,8 @@ from django.contrib.auth.tokens import default_token_generator
 from django.views.decorators.csrf import csrf_exempt
 import json
 
-base_url = 'http://localhost:4200/'
-email_url = 'localhost:4200'
+base_url = 'https://video-flix.de/'
+email_url = 'video-flix.de'
 User = get_user_model()
 
 def activate(request, uidb64, token):
@@ -248,7 +248,10 @@ def send_password_reset_email(request, user):
     token = default_token_generator.make_token(user)
     reset_link = f"{request.scheme}://{request.get_host()}/password-reset-confirm/{uid}/{token}/"
     
-    html_content = render_to_string('password_reset_email.html', {'reset_link': reset_link})
+    html_content = render_to_string('password_reset_email.html', {
+        'reset_link': reset_link,
+        'user': user  
+    })
     text_content = strip_tags(html_content)
     
     email = EmailMultiAlternatives(mail_subject, text_content, to=[user.email])

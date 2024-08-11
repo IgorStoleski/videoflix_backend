@@ -18,8 +18,8 @@ from user.views import UserView, LoginView, LogoutView, activate, request_passwo
 from backend.views import VideoList, VideoDetail, VideoByGenreList
 
 
-base_url = 'http://localhost:4200/'
-email_url = 'localhost:4200'
+base_url = 'https://video-flix.de/'
+email_url = 'video-flix.de'
 User = get_user_model()
 
 class PasswordResetConfirmTests(TestCase):
