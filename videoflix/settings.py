@@ -1,6 +1,7 @@
 import environ
 from pathlib import Path
 import os
+import sentry_sdk
 
 env = environ.Env()
 environ.Env.read_env()
@@ -211,3 +212,13 @@ DEBUG_TOOLBAR_CONFIG = {
     'SHOW_TOOLBAR_CALLBACK': show_toolbar,
 }
 
+sentry_sdk.init(
+    dsn="https://402b0b838b0b9b7d50773d2f82a900f2@o4507811187458048.ingest.de.sentry.io/4507811223502928",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
+)
